@@ -171,7 +171,9 @@ function _show_tab_session(&$PDOdb) {
 	if (!empty($Tab))
 	{
 		$TRefNotFound=array();
+		$TRefComposantNotFound=array();
 	    $nb_not_here = 0;
+	    $nb_not_here_composant = 0;
 		foreach($Tab as $product_ref=> $TNomenclature) {
 
 			$p=new Product($db);
@@ -209,6 +211,8 @@ function _show_tab_session(&$PDOdb) {
 						$p_compo=new Product($db);
 						if($p_compo->fetch(0,$data['fk_product_composant'])<=0){
 							setEventMessage($langs->trans('ErrorFetching',$data['fk_product_composant']));
+							$nb_not_here_composant++;
+							$TRefComposantNotFound[$product_ref] = $data['fk_product_composant'];
 							continue;
 						}
 						$k = $n->addChild($PDOdb, 'TNomenclatureDet');
@@ -242,6 +246,13 @@ function _show_tab_session(&$PDOdb) {
 			foreach ($TRefNotFound as $k => $ref)
 			{
 				echo '<li>'.$ref.'</li>';
+			}
+			echo '</ul>';
+			echo '<p>'.$nb_not_here_composant.' nomenclature(s) au(x) composant(s) non présent(s)</p>';
+			echo '<ul>';
+			foreach ($TRefComposantNotFound as $refproduct => $refcomposant)
+			{
+				echo '<li> Produit '.$refproduct.' : composant '.$refcomposant.'</li>';
 			}
 			echo '</ul>';
 			echo '</div>';
