@@ -568,7 +568,7 @@ llxFooter();
 $db->close();
 
 function setAmountsByNomenclature() {
-	global $db, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
+	global $db, $conf, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
 	$PDOdb = new TPDOdb;
 
@@ -590,9 +590,8 @@ function setAmountsByNomenclature() {
 
 		if(!empty($n) && !empty($n->TNomenclatureDet)) { // Il existe une nomenclature pour la ligne de facture
 			TNomenclature::getMarginDetailByProductAndService($PDOdb, $fac, $TRes, $n, $line->qty, $sign, true);
-
 		} else { // C'est un produit ou service sans nomenclature associée
-			$TRes[$line->fk_product]['pv'] += $sign.$line->subprice;
+			$TRes[$line->fk_product]['pv'] += $line->total_ht;
 			$TRes[$line->fk_product]['qty'] += $sign.$line->qty;
 
 			$p = new Product($db);
@@ -604,13 +603,20 @@ function setAmountsByNomenclature() {
 	}
 
 	$name = $amount_ht = $amount = $qty = array();
+	$qtytotal=$catotal_ht=0;
 
 
 	foreach ($TRes as $id_prod => $TData) {
 		$name[$id_prod] = $TData['label'];
 		$qty[$id_prod] = $TData['qty'];
 		$qtytotal += $TData['qty'];
-		$amount_ht[$id_prod] += $TData['pv'];
+		$pv = $TData['pv'];
+		if(empty($conf->global->NOMENCLATURE_USE_COEF_ON_COUT_REVIENT) && !empty($TData['is_nomenclature_det']) && !empty($id_prod)) {
+			$marge = TNomenclatureCoefObject::getMargeFinal($PDOdb, $fac, 'facture');
+			$pv *= $marge->tx_object;
+		}
+		$amount_ht[$id_prod] += $pv;
+		$catotal_ht += $pv;
 	}
 
 //	var_dump($qtytotal);

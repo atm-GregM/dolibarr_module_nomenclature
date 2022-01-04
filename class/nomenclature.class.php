@@ -1345,8 +1345,9 @@ class TNomenclature extends TObjetStd
 						$pv *= $coef_code_type2;
 					}
 					$marginInfo[$det->fk_product]['pv'] += $sign . $pv;
-					$marginInfo[$det->fk_product]['qty'] += $det->qty;
+					$marginInfo[$det->fk_product]['qty'] += $qty*$det->qty;
 					$marginInfo[$det->fk_product]['label'] = $p->ref.'&nbsp;-&nbsp;'.$p->label;
+					$marginInfo[$det->fk_product]['is_nomenclature_det'] = true;
 				}
 
 			}
