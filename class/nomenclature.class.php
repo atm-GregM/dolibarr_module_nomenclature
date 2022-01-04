@@ -1216,7 +1216,7 @@ class TNomenclature extends TObjetStd
 				$n = new self();
 				$res=$n->loadByObjectId($PDOdb, $line->id, $object->element);
 				if(!empty($n) && !empty($n->TNomenclatureDet)) {
-					self::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $n, $line->qty, ($line->subprice > 0 ? '+' : '-'), false);
+					self::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $n, $line->qty, ($line->subprice > 0 ? '+' : '-'));
 					unset($object->lines[$k]); // Just after loop i call getMarginInfosArray with only lines which have no nomenclature
 				}
 
@@ -1279,7 +1279,7 @@ class TNomenclature extends TObjetStd
 	 * @param int $coef_code_type2 coefficient de marge par ligne (si activé)
 	 * @return void
 	 */
-	static function getMarginDetailByProductAndService(&$PDOdb, $object, &$marginInfo, $n, $qty, $sign='+', $has_parent_nomenclature=false, $coef_code_type=1, $coef_code_type2=1) {
+	static function getMarginDetailByProductAndService(&$PDOdb, $object, &$marginInfo, $n, $qty, $sign='+', $get_detail_by_fk_product=false, $has_parent_nomenclature=false, $coef_code_type=1, $coef_code_type2=1) {
 
 		global $db, $conf;
 
@@ -1310,7 +1310,7 @@ class TNomenclature extends TObjetStd
 				}
 				// Appel récursif
 
-				TNomenclature::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $child_nomenclature, $qty*$det->qty, $sign, true, $coef_code_type*$coef, $coef_code_type2);
+				TNomenclature::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $child_nomenclature, $qty*$det->qty, $sign, $get_detail_by_fk_product, true, $coef_code_type*$coef, $coef_code_type2);
 			}
 
 			// Cas 2 - Pas de nomenclature pour cette composante, on récupère les données pour alimenter le tableau $marginInfos
@@ -1318,25 +1318,35 @@ class TNomenclature extends TObjetStd
 				$p = new Product($db);
 				$p->fetch($det->fk_product);
 
-				// Product
-				if(empty($p->type)) {
+				if(empty($get_detail_by_fk_product)) {
+					// Product
+					if (empty($p->type)) {
+						$pv = $det->pv;
+						if ($has_parent_nomenclature) {
+							$pv = $det->charged_price * $coef_code_type;
+							$pv *= $coef_code_type2;
+						}
+						$marginInfo['pa_products'] += $sign . $det->charged_price * $coef_code_type;
+						$marginInfo['pv_products'] += $sign . $pv;
+					} // Service
+					else {
+						$pv = $det->pv;
+						if ($has_parent_nomenclature) {
+							$pv = $det->charged_price * $coef_code_type;
+							$pv *= $coef_code_type2;
+						}
+						$marginInfo['pa_services'] += $sign . $det->charged_price * $coef_code_type;
+						$marginInfo['pv_services'] += $sign . $pv;
+					}
+				} else {
 					$pv = $det->pv;
-					if($has_parent_nomenclature) {
+					if ($has_parent_nomenclature) {
 						$pv = $det->charged_price * $coef_code_type;
 						$pv *= $coef_code_type2;
 					}
-					$marginInfo['pa_products'] += $sign.$det->charged_price * $coef_code_type;
-					$marginInfo['pv_products'] += $sign.$pv;
-				}
-				// Service
-				else {
-					$pv = $det->pv;
-					if($has_parent_nomenclature) {
-						$pv = $det->charged_price * $coef_code_type;
-						$pv *= $coef_code_type2;
-					}
-					$marginInfo['pa_services'] += $sign.$det->charged_price * $coef_code_type;
-					$marginInfo['pv_services'] += $sign.$pv;
+					$marginInfo[$det->fk_product]['pv'] += $sign . $pv;
+					$marginInfo[$det->fk_product]['qty'] += $det->qty;
+					$marginInfo[$det->fk_product]['label'] = $p->ref.'&nbsp;-&nbsp;'.$p->label;
 				}
 
 			}
