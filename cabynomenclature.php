@@ -568,7 +568,7 @@ llxFooter();
 $db->close();
 
 function setAmountsByNomenclature() {
-	global $db, $conf, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
+	global $db, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
 	$PDOdb = new TPDOdb;
 
@@ -613,12 +613,10 @@ function setAmountsByNomenclature() {
 		$name[$id_prod] = $TData['label'];
 		$qty[$id_prod] = $TData['qty'];
 		$qtytotal += $TData['qty'];
-		$pv = $TData['pv'];
-		$pv_ttc = $TData['pv_ttc'];
-		$amount_ht[$id_prod] += $pv;
-		$amount[$id_prod] += $pv_ttc;
-		$catotal_ht += $pv;
-		$catotal += $pv_ttc;
+		$amount_ht[$id_prod] += $TData['pv'];
+		$amount[$id_prod] += $TData['pv_ttc'];
+		$catotal_ht += price2num($TData['pv'], 'MT');
+		$catotal += price2num($TData['pv_ttc'], 'MT');
 	}
 
 }

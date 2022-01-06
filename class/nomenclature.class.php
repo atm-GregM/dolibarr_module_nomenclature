@@ -1371,8 +1371,8 @@ class TNomenclature extends TObjetStd
 
 					if($line_tva_tx > 0) $pv_ttc *= 1 + $line_tva_tx / 100;
 
-					$marginInfo[$det->fk_product]['pv'] += $sign . $pv;
-					$marginInfo[$det->fk_product]['pv_ttc'] += $sign . $pv_ttc;
+					$marginInfo[$det->fk_product]['pv'] += price2num($sign . $pv, 'MT');
+					$marginInfo[$det->fk_product]['pv_ttc'] += price2num($sign . $pv_ttc, 'MT');
 					$marginInfo[$det->fk_product]['qty'] += $qty*$det->qty;
 					$marginInfo[$det->fk_product]['label'] = $p->ref.'&nbsp;-&nbsp;'.$p->label;
 					$marginInfo[$det->fk_product]['is_nomenclature_det'] = true;
