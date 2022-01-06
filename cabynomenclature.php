@@ -281,7 +281,7 @@ $catotal_ht = 0;
 $qtytotal = 0;
 
 if ($modecompta == 'CREANCES-DETTES') {
-	$sql = "SELECT l.rowid as rowid, l.remise_percent, p.ref as ref, p.label as label, p.fk_product_type as product_type,";
+	$sql = "SELECT l.rowid as rowid, p.ref as ref, p.label as label, p.fk_product_type as product_type,";
 	$sql .= " l.total_ht as amount, l.total_ttc as amount_ttc,";
 	$sql .= " CASE WHEN f.type = 2 THEN -l.qty ELSE l.qty END as qty";
 
@@ -365,7 +365,6 @@ if ($modecompta == 'CREANCES-DETTES') {
 			$qty[$obj->rowid] = $obj->qty;
 			$name[$obj->rowid] = $obj->ref.'&nbsp;-&nbsp;'.$obj->label;
 			$type[$obj->rowid] = $obj->product_type;
-			$remise_line[$obj->rowid] = $obj->remise_percent;
 			$catotal_ht += $obj->amount;
 			$catotal += $obj->amount_ttc;
 			$qtytotal += $obj->qty;
@@ -569,12 +568,13 @@ llxFooter();
 $db->close();
 
 function setAmountsByNomenclature() {
-	global $db, $conf, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal, $remise_line;
+	global $db, $conf, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
 	$PDOdb = new TPDOdb;
 
 	$TRes=array();
 
+	// On parcoure les lignes de factures concernées par le période via le tableau $name
 	foreach ($name as $id_line=>$label) {
 
 		$line = new FactureLigne($db);
@@ -590,9 +590,10 @@ function setAmountsByNomenclature() {
 		$sign = $line->subprice < 0 ? '-' : '+';
 
 		if(!empty($n) && !empty($n->TNomenclatureDet)) { // Il existe une nomenclature pour la ligne de facture
-			TNomenclature::getMarginDetailByProductAndService($PDOdb, $fac, $TRes, $n, $line->qty, $sign, true);
+			TNomenclature::getMarginDetailByProductAndService($PDOdb, $fac, $TRes, $n, $line->qty, $sign, $line->tva_tx, $line->remise_percent, true);
 		} else { // C'est un produit ou service sans nomenclature associée
 			$TRes[$line->fk_product]['pv'] += $line->total_ht;
+			$TRes[$line->fk_product]['pv_ttc'] += $line->total_ttc;
 			$TRes[$line->fk_product]['qty'] += $sign.$line->qty;
 
 			$p = new Product($db);
@@ -604,24 +605,24 @@ function setAmountsByNomenclature() {
 	}
 
 	$name = $amount_ht = $amount = $qty = array();
-	$qtytotal=$catotal_ht=0;
+	$qtytotal=$catotal=$catotal_ht=0;
 
 
+	// On regroupe les informations par produit / service
 	foreach ($TRes as $id_prod => $TData) {
 		$name[$id_prod] = $TData['label'];
 		$qty[$id_prod] = $TData['qty'];
 		$qtytotal += $TData['qty'];
 		$pv = $TData['pv'];
+		$pv_ttc = $TData['pv_ttc'];
 		if(empty($conf->global->NOMENCLATURE_USE_COEF_ON_COUT_REVIENT) && !empty($TData['is_nomenclature_det']) && !empty($id_prod)) {
 			$marge = TNomenclatureCoefObject::getMargeFinal($PDOdb, $fac, 'facture');
 			$pv *= $marge->tx_object;
 		}
 		$amount_ht[$id_prod] += $pv;
+		$amount[$id_prod] += $pv_ttc;
 		$catotal_ht += $pv;
+		$catotal += $pv_ttc;
 	}
-
-//	var_dump($qtytotal);
-	// La ligne sans fk_product est $TRes['']
-	//var_dump(array_search('&nbsp;-&nbsp;', $name));
 
 }

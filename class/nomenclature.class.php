@@ -1216,7 +1216,7 @@ class TNomenclature extends TObjetStd
 				$n = new self();
 				$res=$n->loadByObjectId($PDOdb, $line->id, $object->element);
 				if(!empty($n) && !empty($n->TNomenclatureDet)) {
-					self::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $n, $line->qty, ($line->subprice > 0 ? '+' : '-'));
+					self::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $n, $line->qty, ($line->subprice > 0 ? '+' : '-'), $line->tva_tx, $line->remise_percent);
 					unset($object->lines[$k]); // Just after loop i call getMarginInfosArray with only lines which have no nomenclature
 				}
 
@@ -1274,12 +1274,15 @@ class TNomenclature extends TObjetStd
 	 * @param $marginInfo tableau standard permettant d'afficher les marges, adapté dans cette fonction au détail des nomenclatures
 	 * @param $n nomenclature de la ligne de mcd ou propal
 	 * @param $qty qté ligne
+	 * @param string $sign + si montant ligne positif, - sinon
+	 * @param int $line_remise_percent remise ligne
+	 * @param bool $get_detail_by_fk_product
 	 * @param bool $has_parent_nomenclature
 	 * @param int $coef_code_type coefficient de marche sur coût de revient
 	 * @param int $coef_code_type2 coefficient de marge par ligne (si activé)
 	 * @return void
 	 */
-	static function getMarginDetailByProductAndService(&$PDOdb, $object, &$marginInfo, $n, $qty, $sign='+', $get_detail_by_fk_product=false, $has_parent_nomenclature=false, $coef_code_type=1, $coef_code_type2=1) {
+	static function getMarginDetailByProductAndService(&$PDOdb, $object, &$marginInfo, $n, $qty, $sign='+', $line_tva_tx=0, $line_remise_percent=0, $get_detail_by_fk_product=false, $has_parent_nomenclature=false, $coef_code_type=1, $coef_code_type2=1) {
 
 		global $db, $conf;
 
@@ -1310,7 +1313,7 @@ class TNomenclature extends TObjetStd
 				}
 				// Appel récursif
 
-				TNomenclature::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $child_nomenclature, $qty*$det->qty, $sign, $get_detail_by_fk_product, true, $coef_code_type*$coef, $coef_code_type2);
+				TNomenclature::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $child_nomenclature, $qty*$det->qty, $sign, $line_tva_tx, $line_remise_percent, $get_detail_by_fk_product, true, $coef_code_type*$coef, $coef_code_type2);
 			}
 
 			// Cas 2 - Pas de nomenclature pour cette composante, on récupère les données pour alimenter le tableau $marginInfos
@@ -1318,33 +1321,38 @@ class TNomenclature extends TObjetStd
 				$p = new Product($db);
 				$p->fetch($det->fk_product);
 
+				$pv = $det->pv;
+
 				if(empty($get_detail_by_fk_product)) {
 					// Product
 					if (empty($p->type)) {
-						$pv = $det->pv;
 						if ($has_parent_nomenclature) {
 							$pv = $det->charged_price * $coef_code_type;
 							$pv *= $coef_code_type2;
 						}
 						$marginInfo['pa_products'] += $sign . $det->charged_price * $coef_code_type;
+						if($line_remise_percent > 0) $pv *= 1 - $line_remise_percent / 100;
 						$marginInfo['pv_products'] += $sign . $pv;
 					} // Service
 					else {
-						$pv = $det->pv;
 						if ($has_parent_nomenclature) {
 							$pv = $det->charged_price * $coef_code_type;
 							$pv *= $coef_code_type2;
 						}
 						$marginInfo['pa_services'] += $sign . $det->charged_price * $coef_code_type;
+						if($line_remise_percent > 0) $pv *= 1 - $line_remise_percent / 100;
 						$marginInfo['pv_services'] += $sign . $pv;
 					}
 				} else {
-					$pv = $det->pv;
 					if ($has_parent_nomenclature) {
 						$pv = $det->charged_price * $coef_code_type;
 						$pv *= $coef_code_type2;
 					}
+					$pv_ttc = $pv;
+					if($line_remise_percent > 0) $pv *= 1 - $line_remise_percent / 100;
+					if($line_tva_tx > 0) $pv_ttc *= 1 + $line_tva_tx / 100;
 					$marginInfo[$det->fk_product]['pv'] += $sign . $pv;
+					$marginInfo[$det->fk_product]['pv_ttc'] += $sign . $pv_ttc;
 					$marginInfo[$det->fk_product]['qty'] += $qty*$det->qty;
 					$marginInfo[$det->fk_product]['label'] = $p->ref.'&nbsp;-&nbsp;'.$p->label;
 					$marginInfo[$det->fk_product]['is_nomenclature_det'] = true;
