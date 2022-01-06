@@ -1216,7 +1216,7 @@ class TNomenclature extends TObjetStd
 				$n = new self();
 				$res=$n->loadByObjectId($PDOdb, $line->id, $object->element);
 				if(!empty($n) && !empty($n->TNomenclatureDet)) {
-					self::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $n, $line->qty, ($line->subprice > 0 ? '+' : '-'), $line->tva_tx, $line->remise_percent);
+					self::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $n, $line->qty, $line);
 					unset($object->lines[$k]); // Just after loop i call getMarginInfosArray with only lines which have no nomenclature
 				}
 
@@ -1282,11 +1282,15 @@ class TNomenclature extends TObjetStd
 	 * @param int $coef_code_type2 coefficient de marge par ligne (si activé)
 	 * @return void
 	 */
-	static function getMarginDetailByProductAndService(&$PDOdb, $object, &$marginInfo, $n, $qty, $sign='+', $line_tva_tx=0, $line_remise_percent=0, $get_detail_by_fk_product=false, $has_parent_nomenclature=false, $coef_code_type=1, $coef_code_type2=1) {
+	static function getMarginDetailByProductAndService(&$PDOdb, $object, &$marginInfo, $n, $qty, &$line, $get_detail_by_fk_product=false, $has_parent_nomenclature=false, $coef_code_type=1, $coef_code_type2=1) {
 
 		global $db, $conf;
 
 		$n->setPrice($PDOdb, $qty, 0, $object->element, $object->id); // Chargement des coûts
+
+		$line_remise_percent = $line->remise_percent;
+		$line_tva_tx = $line->tva_tx;
+		$sign = $line->subprice < 0 ? '-' : '+';
 
 		// Boucle sur les lignes d'une nomenclature
 		foreach ($n->TNomenclatureDet as &$det) {
@@ -1313,7 +1317,7 @@ class TNomenclature extends TObjetStd
 				}
 				// Appel récursif
 
-				TNomenclature::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $child_nomenclature, $qty*$det->qty, $sign, $line_tva_tx, $line_remise_percent, $get_detail_by_fk_product, true, $coef_code_type*$coef, $coef_code_type2);
+				TNomenclature::getMarginDetailByProductAndService($PDOdb, $object, $marginInfo, $child_nomenclature, $qty*$det->qty, $line, $get_detail_by_fk_product, true, $coef_code_type*$coef, $coef_code_type2);
 			}
 
 			// Cas 2 - Pas de nomenclature pour cette composante, on récupère les données pour alimenter le tableau $marginInfos
@@ -1323,7 +1327,7 @@ class TNomenclature extends TObjetStd
 
 				$pv = $det->pv;
 
-				if(empty($get_detail_by_fk_product)) {
+				if(empty($get_detail_by_fk_product)) { // Regroupement par type (produit ou service)
 					// Product
 					if (empty($p->type)) {
 						if ($has_parent_nomenclature) {
@@ -1343,14 +1347,30 @@ class TNomenclature extends TObjetStd
 						if($line_remise_percent > 0) $pv *= 1 - $line_remise_percent / 100;
 						$marginInfo['pv_services'] += $sign . $pv;
 					}
-				} else {
+				} else { // Regroupement par produit / service
 					if ($has_parent_nomenclature) {
 						$pv = $det->charged_price * $coef_code_type;
 						$pv *= $coef_code_type2;
 					}
-					$pv_ttc = $pv;
+
+					// Application de la remise ligne si existante
 					if($line_remise_percent > 0) $pv *= 1 - $line_remise_percent / 100;
+					$pv_ttc = $pv;
+
+					// Si la configuration indique qu'il y a un coefficient de marge global et non ligne à ligne de nomenclature, on l'applique sur produit / service ici
+					if(empty($conf->global->NOMENCLATURE_USE_COEF_ON_COUT_REVIENT)) {
+						global $marge_finale_module_nomenclature;
+
+						if(empty($marge_finale_module_nomenclature)) {
+							$marge_finale = TNomenclatureCoefObject::getMargeFinal($PDOdb, $object, 'facture');
+							$marge_finale_module_nomenclature = $marge_finale->tx_object;
+						}
+						$pv *= $marge_finale_module_nomenclature;
+						$pv_ttc *= $marge_finale_module_nomenclature;
+					}
+
 					if($line_tva_tx > 0) $pv_ttc *= 1 + $line_tva_tx / 100;
+
 					$marginInfo[$det->fk_product]['pv'] += $sign . $pv;
 					$marginInfo[$det->fk_product]['pv_ttc'] += $sign . $pv_ttc;
 					$marginInfo[$det->fk_product]['qty'] += $qty*$det->qty;

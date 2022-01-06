@@ -590,7 +590,7 @@ function setAmountsByNomenclature() {
 		$sign = $line->subprice < 0 ? '-' : '+';
 
 		if(!empty($n) && !empty($n->TNomenclatureDet)) { // Il existe une nomenclature pour la ligne de facture
-			TNomenclature::getMarginDetailByProductAndService($PDOdb, $fac, $TRes, $n, $line->qty, $sign, $line->tva_tx, $line->remise_percent, true);
+			TNomenclature::getMarginDetailByProductAndService($PDOdb, $fac, $TRes, $n, $line->qty, $line, true);
 		} else { // C'est un produit ou service sans nomenclature associée
 			$TRes[$line->fk_product]['pv'] += $line->total_ht;
 			$TRes[$line->fk_product]['pv_ttc'] += $line->total_ttc;
@@ -615,10 +615,6 @@ function setAmountsByNomenclature() {
 		$qtytotal += $TData['qty'];
 		$pv = $TData['pv'];
 		$pv_ttc = $TData['pv_ttc'];
-		if(empty($conf->global->NOMENCLATURE_USE_COEF_ON_COUT_REVIENT) && !empty($TData['is_nomenclature_det']) && !empty($id_prod)) {
-			$marge = TNomenclatureCoefObject::getMargeFinal($PDOdb, $fac, 'facture');
-			$pv *= $marge->tx_object;
-		}
 		$amount_ht[$id_prod] += $pv;
 		$amount[$id_prod] += $pv_ttc;
 		$catotal_ht += $pv;
