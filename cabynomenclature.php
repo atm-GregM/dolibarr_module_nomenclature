@@ -281,7 +281,7 @@ $catotal_ht = 0;
 $qtytotal = 0;
 
 if ($modecompta == 'CREANCES-DETTES') {
-	$sql = "SELECT l.rowid as rowid, p.ref as ref, p.label as label, p.fk_product_type as product_type,";
+	$sql = "SELECT l.rowid as rowid, l.remise_percent, p.ref as ref, p.label as label, p.fk_product_type as product_type,";
 	$sql .= " l.total_ht as amount, l.total_ttc as amount_ttc,";
 	$sql .= " CASE WHEN f.type = 2 THEN -l.qty ELSE l.qty END as qty";
 
@@ -365,6 +365,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 			$qty[$obj->rowid] = $obj->qty;
 			$name[$obj->rowid] = $obj->ref.'&nbsp;-&nbsp;'.$obj->label;
 			$type[$obj->rowid] = $obj->product_type;
+			$remise_line[$obj->rowid] = $obj->remise_percent;
 			$catotal_ht += $obj->amount;
 			$catotal += $obj->amount_ttc;
 			$qtytotal += $obj->qty;
@@ -568,7 +569,7 @@ llxFooter();
 $db->close();
 
 function setAmountsByNomenclature() {
-	global $db, $conf, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
+	global $db, $conf, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal, $remise_line;
 
 	$PDOdb = new TPDOdb;
 
