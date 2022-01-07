@@ -486,7 +486,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 	print "</tr>\n";
 
 	if (count($name)) {
-		setAmountsByNomenclature($sortfield, $sortorder, $selected_type, $selected_cat, $subcat);
+		setAmountsByNomenclature($sortfield, $selected_type, $selected_cat, $subcat);
 		foreach ($name as $key => $value) {
 			print '<tr class="oddeven">';
 
@@ -572,10 +572,9 @@ $db->close();
  * Fonction permettant de modifier les valeurs de tous les tableaux nécessaires à l'affichage des données en fonction du détail des nomenclatures / ouvrages
  *
  * @param $sortfield string sortfield
- * @param $sortorder string sortorder
  * @return void
  */
-function setAmountsByNomenclature($sortfield, $sortorder, $selected_type, $selected_cat, $subcat) {
+function setAmountsByNomenclature($sortfield, $selected_type, $selected_cat, $subcat) {
 
 	global $db, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
