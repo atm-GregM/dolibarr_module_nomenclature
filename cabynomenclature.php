@@ -669,7 +669,14 @@ function setAmountsByNomenclature($sortfield, $selected_type, $selected_cat, $su
 			}
 		}
 
-		$name[$id_prod] = $TData['label'].(!empty($TData['tooltip']) ? '&nbsp;'.img_info($TData['tooltip']) : '');
+		$tooltip=array();
+		if(!empty($TData['tooltip'])) {
+			foreach ($TData['tooltip'] as $ouvrage=>$nb_sell) {
+				$tooltip[$nb_sell.' x '.$ouvrage] = $nb_sell.' x '.$ouvrage;
+			}
+		}
+
+		$name[$id_prod] = $TData['label'].(!empty($TData['tooltip']) ? '&nbsp;'.img_info(implode(", ", $tooltip)) : '');
 		$qty[$id_prod] = $TData['qty'];
 		$qtytotal += $TData['qty'];
 		$amount_ht[$id_prod] += $TData['pv'];

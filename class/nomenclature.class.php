@@ -1375,7 +1375,7 @@ class TNomenclature extends TObjetStd
 					$marginInfo[$det->fk_product]['qty'] += $qty*$det->qty;
 					$marginInfo[$det->fk_product]['label'] = $p->ref.'&nbsp;-&nbsp;'.$p->label;
 					$marginInfo[$det->fk_product]['type'] = $p->type;
-					$marginInfo[$det->fk_product]['tooltip'] = $line->qty.' x '.$line->ref;
+					$marginInfo[$det->fk_product]['tooltip'][$line->ref] += $line->qty;
 
 				}
 
