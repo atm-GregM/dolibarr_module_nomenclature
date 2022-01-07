@@ -351,7 +351,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 	$sql .= $hookmanager->resPrint;
 
 	$sql .= " GROUP BY l.rowid, p.ref, p.label, p.fk_product_type";
-	$sql .= $db->order($sortfield, $sortorder);
+	//$sql .= $db->order($sortfield, $sortorder); Le tri est maintenant fait en PHP, obligatoire à cause de la récursivité
 //echo $sql;
 	dol_syslog("cabyprodserv", LOG_DEBUG);
 	$result = $db->query($sql);
@@ -457,7 +457,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 		$_SERVER["PHP_SELF"],
 		"amount",
 		"",
-		$classslink,
+		$paramslink,
 		'class="right"',
 		$sortfield,
 		$sortorder
@@ -485,7 +485,8 @@ if ($modecompta == 'CREANCES-DETTES') {
 	print "</tr>\n";
 
 	if (count($name)) {
-		setAmountsByNomenclature();
+		var_dump($sortfield, $sortorder);
+		setAmountsByNomenclature($sortfield, $sortorder);
 		foreach ($name as $key => $value) {
 			print '<tr class="oddeven">';
 
@@ -567,7 +568,14 @@ if ($modecompta == 'CREANCES-DETTES') {
 llxFooter();
 $db->close();
 
-function setAmountsByNomenclature() {
+/**
+ * Fonction permettant de modifier les valeurs de tous les tableaux nécessaires à l'affichage des données en fonction du détail des nomenclatures / ouvrages
+ *
+ * @param $sortfield string sortfield
+ * @param $sortorder string sortorder
+ * @return void
+ */
+function setAmountsByNomenclature($sortfield, $sortorder) {
 	global $db, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
 	$PDOdb = new TPDOdb;
@@ -587,13 +595,15 @@ function setAmountsByNomenclature() {
 		$n = new TNomenclature;
 		$res=$n->loadByObjectId($PDOdb, $line->id, 'facture');
 
-		$sign = $line->subprice < 0 ? '-' : '+';
-
 		if(!empty($n) && !empty($n->TNomenclatureDet)) { // Il existe une nomenclature pour la ligne de facture
+
 			TNomenclature::getMarginDetailByProductAndService($PDOdb, $fac, $TRes, $n, $line->qty, $line, true);
+
 		} else { // C'est un produit ou service sans nomenclature associée
+
 			$TRes[$line->fk_product]['pv'] += $line->total_ht;
 			$TRes[$line->fk_product]['pv_ttc'] += $line->total_ttc;
+			$sign = $line->subprice < 0 ? '-' : '+';
 			$TRes[$line->fk_product]['qty'] += $sign.$line->qty;
 
 			$p = new Product($db);
@@ -618,5 +628,67 @@ function setAmountsByNomenclature() {
 		$catotal_ht += price2num($TData['pv'], 'MT');
 		$catotal += price2num($TData['pv_ttc'], 'MT');
 	}
+
+	// Gestion des tris
+	if(!empty($sortfield)) {
+
+		// Tri par valeur en fonction du tableauégalement trier
+		if($sortfield === 'ref') $array_to_sort = &$name;
+		elseif($sortfield === 'qty') $array_to_sort = &$qty;
+		elseif($sortfield === 'amount') $array_to_sort = $amount_ht;
+		elseif($sortfield === 'amount_ttc') $array_to_sort = $amount;
+		uasort($array_to_sort, '_cmp');
+
+		// La boucle pour l'affichage se base sur l'ordre des éléments du tableau $name, donc si on trie une autre colonne, il faut réordonner le tableau $name dans ce sens pour que l'affichage soit juste
+		if($sortfield !== 'name') _tri_tableau_name_by_order_other_tableau($name,$array_to_sort);
+	}
+
+}
+
+/**
+ * Fonction de tri pour uasort
+ *
+ * @param $a int or string first element to compare
+ * @param $b int or string second element to compare
+ * @return int
+ */
+function _cmp($a, $b) {
+
+	global $sortorder;
+
+	if(!is_numeric($a)) {
+		if($sortorder === 'asc') {
+			return strcmp($a, $b);
+		} else {
+			return strcmp($b, $a);
+		}
+	}
+
+	if ($a == $b) {
+        return 0;
+    }
+
+	if($sortorder === 'asc') {
+		return ($a < $b) ? -1 : 1;
+	} else {
+		return ($a > $b) ? -1 : 1;
+	}
+
+}
+
+/**
+ * @param $name array array of products names
+ * @param $other_array array another array (qty, amount_ht or amount)
+ * @return void
+ */
+function _tri_tableau_name_by_order_other_tableau(&$name, &$other_array) {
+
+	$tmp = array();
+
+	foreach ($other_array as $k=>$v) {
+		$tmp[$k] = $name[$k];
+	}
+
+	$name = $tmp;
 
 }
