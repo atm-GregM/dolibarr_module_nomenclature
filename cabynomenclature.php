@@ -318,30 +318,30 @@ if ($modecompta == 'CREANCES-DETTES') {
 	/*if ($selected_type >= 0) {
 		$sql .= " AND l.product_type = ".((int) $selected_type);
 	}*/
-	if ($selected_cat === -2) {	// Without any category
-		$sql .= " AND cp.fk_product is null";
-	} elseif ($selected_cat > 0) {	// Into a specific category
-		if ($subcat) {
-			$TListOfCats = $categorie->get_full_arbo('product', $selected_cat, 1);
-
-			$listofcatsql = "";
-			foreach ($TListOfCats as $key => $cat) {
-				if ($key !== 0) {
-					$listofcatsql .= ",";
-				}
-				$listofcatsql .= $cat['rowid'];
-			}
-		}
-
-		$sql .= " AND (p.rowid IN ";
-		$sql .= " (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product cp WHERE ";
-		if ($subcat) {
-			$sql .= "cp.fk_categorie IN (".$db->sanitize($listofcatsql).")";
-		} else {
-			$sql .= "cp.fk_categorie = ".((int) $selected_cat);
-		}
-		$sql .= "))";
-	}
+//	if ($selected_cat === -2) {	// Without any category
+//		$sql .= " AND cp.fk_product is null";
+//	} elseif ($selected_cat > 0) {	// Into a specific category
+//		if ($subcat) {
+//			$TListOfCats = $categorie->get_full_arbo('product', $selected_cat, 1);
+//
+//			$listofcatsql = "";
+//			foreach ($TListOfCats as $key => $cat) {
+//				if ($key !== 0) {
+//					$listofcatsql .= ",";
+//				}
+//				$listofcatsql .= $cat['rowid'];
+//			}
+//		}
+//
+//		$sql .= " AND (p.rowid IN ";
+//		$sql .= " (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product cp WHERE ";
+//		if ($subcat) {
+//			$sql .= "cp.fk_categorie IN (".$db->sanitize($listofcatsql).")";
+//		} else {
+//			$sql .= "cp.fk_categorie = ".((int) $selected_cat);
+//		}
+//		$sql .= "))";
+//	}
 	if ($selected_soc > 0) {
 		$sql .= " AND soc.rowid=".((int) $selected_soc);
 	}
@@ -354,7 +354,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 	$sql .= " GROUP BY l.rowid, p.ref, p.label, p.fk_product_type";
 	//$sql .= $db->order($sortfield, $sortorder); Le tri est maintenant fait en PHP, obligatoire à cause de la récursivité
 //echo $sql;
-	dol_syslog("cabyprodserv", LOG_DEBUG);
+	dol_syslog("cabynomenclature", LOG_DEBUG);
 	$result = $db->query($sql);
 	if ($result) {
 		$num = $db->num_rows($result);
@@ -486,7 +486,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 	print "</tr>\n";
 
 	if (count($name)) {
-		setAmountsByNomenclature($sortfield, $sortorder, $selected_type);
+		setAmountsByNomenclature($sortfield, $sortorder, $selected_type, $selected_cat, $subcat);
 		foreach ($name as $key => $value) {
 			print '<tr class="oddeven">';
 
@@ -575,7 +575,8 @@ $db->close();
  * @param $sortorder string sortorder
  * @return void
  */
-function setAmountsByNomenclature($sortfield, $sortorder, $selected_type) {
+function setAmountsByNomenclature($sortfield, $sortorder, $selected_type, $selected_cat, $subcat) {
+
 	global $db, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
 	$PDOdb = new TPDOdb;
@@ -615,14 +616,59 @@ function setAmountsByNomenclature($sortfield, $sortorder, $selected_type) {
 
 	}
 
-	$name = $amount_ht = $amount = $qty = $type = array();
+	$name = $amount_ht = $amount = $qty = $type = $TLoadedCategs = array();
 	$qtytotal=$catotal=$catotal_ht=0;
 
 
 	// On regroupe les informations par produit / service
 	foreach ($TRes as $id_prod => $TData) {
 
+		// Filtre type produit / service
 		if($selected_type >= 0 && $TData['type'] !== $selected_type) continue;
+
+		// Filtre categ
+		if($selected_cat > 0) {
+			$categorie = new Categorie($db);
+			if ($selected_cat === -2) {    // Without any category
+				$sql .= " AND cp.fk_product is null";
+			} elseif ($selected_cat > 0) {    // Into a specific category
+				if ($subcat) {
+					$TListOfCats = $categorie->get_full_arbo('product', $selected_cat, 1);
+
+					$product_is_present_in_one_categ=false;
+					foreach ($TListOfCats as $key => $cat) {
+						if ($key === 0) continue;
+
+						if(!empty($TLoadedCategs[$cat['rowid']])) $categ = $TLoadedCategs[$cat['rowid']];
+						else {
+							$categ = new Categorie($db);
+							$categ->fetch($cat['rowid']);
+							$TLoadedCategs[$cat['rowid']] = $categ;
+						}
+
+						if($categ->containsObject('product', $id_prod) > 0) {
+							$product_is_present_in_one_categ=true;
+							break;
+						}
+					}
+
+					if(empty($product_is_present_in_one_categ)) continue;
+
+				} else {
+
+					if(!empty($TLoadedCategs[$selected_cat])) $categ = $TLoadedCategs[$selected_cat];
+					else {
+						$categ = new Categorie($db);
+						$categ->fetch($selected_cat);
+						$TListOfCats[$selected_cat] = $categ;
+					}
+
+					$res = $categ->containsObject('product', $id_prod);
+					if(empty($res)) continue;
+
+				}
+			}
+		}
 
 		$name[$id_prod] = $TData['label'];
 		$qty[$id_prod] = $TData['qty'];
