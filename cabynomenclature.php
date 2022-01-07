@@ -314,12 +314,13 @@ if ($modecompta == 'CREANCES-DETTES') {
 	if ($date_start && $date_end) {
 		$sql .= " AND f.datef >= '".$db->idate($date_start)."' AND f.datef <= '".$db->idate($date_end)."'";
 	}
-	if ($selected_type >= 0) {
+	// Le filtre est maintenant fait en PHP, obligatoire à cause de la récursivité
+	/*if ($selected_type >= 0) {
 		$sql .= " AND l.product_type = ".((int) $selected_type);
-	}
+	}*/
 	if ($selected_cat === -2) {	// Without any category
 		$sql .= " AND cp.fk_product is null";
-	} elseif ($selected_cat) {	// Into a specific category
+	} elseif ($selected_cat > 0) {	// Into a specific category
 		if ($subcat) {
 			$TListOfCats = $categorie->get_full_arbo('product', $selected_cat, 1);
 
@@ -485,8 +486,7 @@ if ($modecompta == 'CREANCES-DETTES') {
 	print "</tr>\n";
 
 	if (count($name)) {
-		var_dump($sortfield, $sortorder);
-		setAmountsByNomenclature($sortfield, $sortorder);
+		setAmountsByNomenclature($sortfield, $sortorder, $selected_type);
 		foreach ($name as $key => $value) {
 			print '<tr class="oddeven">';
 
@@ -575,7 +575,7 @@ $db->close();
  * @param $sortorder string sortorder
  * @return void
  */
-function setAmountsByNomenclature($sortfield, $sortorder) {
+function setAmountsByNomenclature($sortfield, $sortorder, $selected_type) {
 	global $db, $name, $amount_ht, $amount, $qty, $type, $catotal_ht, $catotal, $qtytotal;
 
 	$PDOdb = new TPDOdb;
@@ -605,6 +605,7 @@ function setAmountsByNomenclature($sortfield, $sortorder) {
 			$TRes[$line->fk_product]['pv_ttc'] += $line->total_ttc;
 			$sign = $line->subprice < 0 ? '-' : '+';
 			$TRes[$line->fk_product]['qty'] += $sign.$line->qty;
+			$TRes[$line->fk_product]['type'] = $line->product_type;
 
 			$p = new Product($db);
 			$p->fetch($line->fk_product);
@@ -614,12 +615,15 @@ function setAmountsByNomenclature($sortfield, $sortorder) {
 
 	}
 
-	$name = $amount_ht = $amount = $qty = array();
+	$name = $amount_ht = $amount = $qty = $type = array();
 	$qtytotal=$catotal=$catotal_ht=0;
 
 
 	// On regroupe les informations par produit / service
 	foreach ($TRes as $id_prod => $TData) {
+
+		if($selected_type >= 0 && $TData['type'] !== $selected_type) continue;
+
 		$name[$id_prod] = $TData['label'];
 		$qty[$id_prod] = $TData['qty'];
 		$qtytotal += $TData['qty'];
@@ -627,6 +631,8 @@ function setAmountsByNomenclature($sortfield, $sortorder) {
 		$amount[$id_prod] += $TData['pv_ttc'];
 		$catotal_ht += price2num($TData['pv'], 'MT');
 		$catotal += price2num($TData['pv_ttc'], 'MT');
+		$type[$id_prod] = $TData['type'];
+
 	}
 
 	// Gestion des tris
