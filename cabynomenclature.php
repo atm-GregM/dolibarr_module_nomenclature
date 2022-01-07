@@ -669,7 +669,7 @@ function setAmountsByNomenclature($sortfield, $selected_type, $selected_cat, $su
 			}
 		}
 
-		$name[$id_prod] = $TData['label'];
+		$name[$id_prod] = $TData['label'].(!empty($TData['tooltip']) ? '&nbsp;'.img_info($TData['tooltip']) : '');
 		$qty[$id_prod] = $TData['qty'];
 		$qtytotal += $TData['qty'];
 		$amount_ht[$id_prod] += $TData['pv'];

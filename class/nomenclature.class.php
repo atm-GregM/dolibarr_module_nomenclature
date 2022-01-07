@@ -1355,7 +1355,6 @@ class TNomenclature extends TObjetStd
 
 					// Application de la remise ligne si existante
 					if($line_remise_percent > 0) $pv *= 1 - $line_remise_percent / 100;
-					$pv_ttc = $pv;
 
 					// Si la configuration indique qu'il y a un coefficient de marge global et non ligne à ligne de nomenclature, on l'applique sur produit / service ici
 					if(empty($conf->global->NOMENCLATURE_USE_COEF_ON_COUT_REVIENT)) {
@@ -1366,7 +1365,7 @@ class TNomenclature extends TObjetStd
 							$marge_finale_module_nomenclature = $marge_finale->tx_object;
 						}
 						$pv *= $marge_finale_module_nomenclature;
-						$pv_ttc *= $marge_finale_module_nomenclature;
+						$pv_ttc = $pv;
 					}
 
 					if($line_tva_tx > 0) $pv_ttc *= 1 + $line_tva_tx / 100;
@@ -1375,7 +1374,9 @@ class TNomenclature extends TObjetStd
 					$marginInfo[$det->fk_product]['pv_ttc'] += price2num($sign . $pv_ttc, 'MT');
 					$marginInfo[$det->fk_product]['qty'] += $qty*$det->qty;
 					$marginInfo[$det->fk_product]['label'] = $p->ref.'&nbsp;-&nbsp;'.$p->label;
-					$marginInfo[$det->fk_product]['is_nomenclature_det'] = true;
+					$marginInfo[$det->fk_product]['type'] = $p->type;
+					$marginInfo[$det->fk_product]['tooltip'] = $line->qty.' x '.$line->ref;
+
 				}
 
 			}
